@@ -2,7 +2,7 @@ import { motion, Variants } from 'framer-motion';
 import { 
   BarChart, Bar, LineChart, Line, RadarChart, Radar, PolarGrid, 
   PolarAngleAxis, PolarRadiusAxis, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, Legend 
+  Tooltip, ResponsiveContainer
 } from 'recharts';
 import { Heart, Activity, TrendingUp } from 'lucide-react';
 
@@ -147,4 +147,5 @@ export default function Insights() {
       </motion.div>
     </motion.div>
   );
+
 }
