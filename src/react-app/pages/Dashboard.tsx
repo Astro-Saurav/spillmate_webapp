@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '@/react-app/hooks/useAuth'
-import Scene3D from '@/react-app/components/Scene3D'
 
 interface Conversation {
   id: string;
