@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
-import { Message } from '../../shared/types'; // This path to your types must be correct
+import { Message } from 'src/shared/types'; // This path to your types must be correct
 
 export default async function handler(
   req: NextApiRequest,
