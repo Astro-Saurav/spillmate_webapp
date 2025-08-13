@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/react-app/hooks/useAuth";
 import Layout from "@/react-app/components/Layout";
 import DocumentLayout from "@/react-app/components/DocumentLayout";
@@ -12,16 +12,17 @@ import MoodTracker from "@/react-app/pages/MoodTracker";
 import Insights from "@/react-app/pages/Insights";
 import Pricing from "@/react-app/pages/Pricing";
 import Admin from "@/react-app/pages/Admin";
+import Settings from "./pages/Settings";
 import FAQ from "@/react-app/pages/FAQ";
 import Terms from "@/react-app/pages/Terms";
-import Settings from "./pages/Settings";
 
 
-// A reusable component to protect routes that require authentication
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+// --- THIS IS THE UPDATED ProtectedRoute COMPONENT ---
+// It now acts as a "layout route" using the <Outlet /> component.
+function ProtectedRoute() {
   const { user, loading } = useAuth();
   
-  // While checking for user auth, show a global loader
+  // While checking auth, show a global loader
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950">
@@ -35,42 +36,62 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
   
-  // If authenticated, render the children within the main application layout
-  return <Layout>{children}</Layout>;
+  // If authenticated, render the main application layout.
+  // The <Outlet /> is where the nested child routes (Dashboard, etc.) will be rendered.
+  return (
+    <Layout>
+      <Outlet />
+    </Layout>
+  );
 }
 
-// Defines all the routes for the application
+// --- THIS IS THE UPDATED AppRoutes COMPONENT ---
+// The protected routes are now cleaner and grouped together.
 function AppRoutes() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  
+  // To prevent a flicker on page load, we can wait for auth state to resolve
+  // before rendering routes that depend on the user object.
+  if (loading) {
+      return (
+        <div className="flex h-screen items-center justify-center bg-slate-950">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-purple-500"></div>
+        </div>
+      );
+  }
 
   return (
     <Routes>
       {/* --- PUBLIC ROUTES --- */}
+      {/* If the user is logged in, these routes will redirect to the dashboard. */}
       <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Welcome />} />
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
-      
-      {/* --- PROTECTED ROUTES (rendered within main Layout) --- */}
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/conversations" element={<ProtectedRoute><Conversations /></ProtectedRoute>} />
-      <Route path="/mood-tracker" element={<ProtectedRoute><MoodTracker /></ProtectedRoute>} />
-      <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
-      <Route path="/pricing" element={<ProtectedRoute><Pricing /></ProtectedRoute>} />
-      <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+      <Route path="/pricing" element={<DocumentLayout><Pricing /></DocumentLayout>} />
 
-      {/* --- PUBLIC DOCUMENT ROUTES (rendered within DocumentLayout) --- */}
+      {/* --- PROTECTED ROUTES --- */}
+      {/* This single parent route handles authentication for all nested routes. */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/conversations" element={<Conversations />} />
+        <Route path="/mood-tracker" element={<MoodTracker />} />
+        <Route path="/insights" element={<Insights />} />
+        <Route path="/settings" element={<Settings />} /> {/* Moved to be protected */}
+        {/* Only show the admin route if the user has the admin role */}
+        {/* <Route path="/admin" element={<Admin />} /> */}
+      </Route>
+
+      {/* --- PUBLIC DOCUMENT ROUTES --- */}
       <Route path="/faq" element={<DocumentLayout><FAQ /></DocumentLayout>} />
       <Route path="/terms" element={<DocumentLayout><Terms /></DocumentLayout>} />
-      <Route path="/privacy" element={<DocumentLayout><Terms /></DocumentLayout>} />
-      <Route path="/settings" element={<DocumentLayout><Settings /></DocumentLayout>} />
+      <Route path="/privacy" element={<DocumentLayout><Terms /></DocumentLayout>} /> {/* Assuming Privacy uses Terms layout */}
 
       {/* --- FALLBACK ROUTE --- */}
-      {/* Any other path will redirect to the dashboard if logged in, or home if not */}
       <Route path="*" element={<Navigate to={user ? "/dashboard" : "/"} />} />
     </Routes>
   );
 }
 
-// The main App component that sets up the auth context and router
+// The main App component (no changes needed here)
 export default function App() {
   return (
     <AuthProvider>
