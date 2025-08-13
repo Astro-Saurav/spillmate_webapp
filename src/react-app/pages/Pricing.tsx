@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'; // Corrected import
 
 // Mock hook for standalone functionality
 const useAuth = () => ({
-  profile: { role: 'free_user' }, // Try 'free_user' or 'premium_user'
+  profile: { role: 'free_user' }, // Try 'free_user' or 'premium_user
 });
 
 /**
@@ -139,7 +139,7 @@ export default function Pricing() {
 
             {/* Pricing Cards */}
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:items-start">
-                {plans.map((plan, index) => (
+                {plans.map((plan) => (
                     <motion.div
                         key={plan.name}
                         variants={itemVariants}
