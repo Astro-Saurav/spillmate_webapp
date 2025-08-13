@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data: Profile = await response.json();
       setProfile(data);
       return data;
-    } catch (error)
+    } catch (error) { // <-- THIS IS THE FIX
       console.error('Error fetching profile:', error);
       setProfile(null);
       return null;
@@ -114,9 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshProfile, createProfile]);
 
-  // --- THIS IS THE FIX ---
-  // The signInWithOtp function now uses an environment variable for the redirect URL.
-  // This ensures the link works correctly in both local development and your live Vercel deployment.
+  // --- Auth Methods ---
   const signInWithOtp = (email: string) => {
     const redirectTo = process.env.NEXT_PUBLIC_SITE_URL
       ? `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
@@ -129,7 +127,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
   };
-  // -----------------------
 
   const signOut = async () => {
     await supabase.auth.signOut();
