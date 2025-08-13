@@ -1,53 +1,78 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { getGeminiResponse } from 'src/server/gemini'; // Adjust this path if your gemini.ts file is elsewhere
-import { Message } from 'src/shared/types'; // Adjust this path if your types file is elsewhere
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { Message } from 'src/shared/types.ts'; // Assuming types are in `src/shared/types.ts`
 
-// Define the shape of incoming and outgoing data for type safety
-interface ChatRequestBody {
-  messages: Message[];
+const MODEL_NAME = "gemini-1.5-pro-latest";
+const API_KEY = process.env.GEMINI_API_KEY;
+
+if (!API_KEY) {
+  // This is a server-side check; the app will fail to build if this is not set.
+  throw new Error("CRITICAL: GEMINI_API_KEY environment variable is not set.");
 }
 
-interface ChatResponseBody {
-  content: string;
-}
+const genAI = new GoogleGenerativeAI(API_KEY);
 
-interface ErrorResponseBody {
-  message: string;
-}
+// Define the persona for your AI. This is a constant instruction.
+const systemInstruction = {
+  // NOTE: This role is for organization; it's applied in getGenerativeModel.
+  role: "system", 
+  parts: [{ text: `
+    You are Spillmate, a friendly, empathetic, and supportive AI companion. 
+    Your goal is to be a positive friend to the user.
+    - Keep your responses concise and conversational (like a text message).
+    - Analyze the user's messages to understand their mood. If they seem sad or anxious, be extra gentle and validating. If they are happy, celebrate with them.
+    - Ask thoughtful follow-up questions to encourage them to explore their feelings.
+    - Never give medical advice. If the user mentions a crisis (e.g., self-harm), gently guide them to seek professional help immediately by providing standard crisis line numbers.
+    - Maintain a positive and encouraging tone. End on a hopeful or supportive note.
+  `}],
+};
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<ChatResponseBody | ErrorResponseBody>
-) {
-  // --- This line is our critical diagnostic tool ---
-  // It checks if the server is actually seeing your API key.
-  if (!process.env.GEMINI_API_KEY) {
-      console.error("CRITICAL SERVER ERROR: The GEMINI_API_KEY environment variable is missing!");
-      // Send a specific JSON error back to the frontend.
-      return res.status(500).json({ message: "Server is missing its API Key configuration." });
-  }
+export async function getGeminiResponse(history: Message[]): Promise<string> {
+  
+  // --- FIX #1: The model must be initialized WITH the system instruction. ---
+  // This sets the AI's persona for the entire conversation.
+  const model = genAI.getGenerativeModel({ 
+    model: MODEL_NAME,
+    systemInstruction, 
+  });
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method Not Allowed. Please use POST.' });
+  // --- FIX #2: Separate the previous conversation from the new message. ---
+  const conversationHistory = history.slice(0, -1); // Get all messages EXCEPT the very last one.
+  const latestMessage = history[history.length - 1];   // Get the NEW message that needs a response.
+
+  // A safety check to ensure your logic is correct.
+  if (!latestMessage || latestMessage.role !== 'user') {
+      throw new Error("Logic Error: The last message in the history must be from the user.");
   }
 
   try {
-    const { messages } = req.body as ChatRequestBody;
+    const chat = model.startChat({
+      // Initialize the chat with ONLY the previous messages.
+      history: conversationHistory.map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user', // Gemini uses 'model' for the assistant role.
+        parts: [{ text: msg.content }],
+      })),
+      generationConfig: {
+        temperature: 0.9,
+        topK: 1,
+        topP: 1,
+        maxOutputTokens: 2048,
+      },
+      safetySettings: [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+      ],
+    });
 
-    if (!messages || messages.length === 0) {
-      return res.status(400).json({ message: 'No messages provided.' });
-    }
-    
-    // Call your actual Gemini service function
-    const aiResponseContent = await getGeminiResponse(messages);
-
-    // Send the successful response from the AI
-    res.status(200).json({ content: aiResponseContent });
+    // --- FIX #3: Send ONLY the content of the new message. ---
+    // The chat already has the history; now it just needs the new prompt.
+    const result = await chat.sendMessage(latestMessage.content);
+    return result.response.text();
 
   } catch (error: any) {
-    console.error('Error in /api/chat handler:', error);
-    
-    // If anything goes wrong inside getGeminiResponse, send a clear JSON error.
-    res.status(500).json({ message: error.message || "An unexpected error occurred." });
+    // This is good, detailed error logging for your server console.
+    console.error("Gemini API Error Details:", error);
+    throw new Error("The AI service failed to respond. Please check the server logs.");
   }
 }
