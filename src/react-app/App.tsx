@@ -11,7 +11,6 @@ import Conversations from "@/react-app/pages/Conversations";
 import MoodTracker from "@/react-app/pages/MoodTracker";
 import Insights from "@/react-app/pages/Insights";
 import Pricing from "@/react-app/pages/Pricing";
-import Admin from "@/react-app/pages/Admin";
 import Settings from "./pages/Settings";
 import FAQ from "@/react-app/pages/FAQ";
 import Terms from "@/react-app/pages/Terms";
