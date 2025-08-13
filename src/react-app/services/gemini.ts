@@ -1,77 +1,53 @@
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
-import { Message } from 'src/shared/types'; // Make sure this path is correct
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { getGeminiResponse } from 'src/server/gemini'; // Adjust this path if your gemini.ts file is elsewhere
+import { Message } from 'src/shared/types'; // Adjust this path if your types file is elsewhere
 
-const MODEL_NAME = "gemini-1.5-pro-latest";
-const API_KEY = process.env.GEMINI_API_KEY;
-
-if (!API_KEY) {
-  throw new Error("CRITICAL: GEMINI_API_KEY environment variable is not set.");
+// Define the shape of incoming and outgoing data for type safety
+interface ChatRequestBody {
+  messages: Message[];
 }
 
-const genAI = new GoogleGenerativeAI(API_KEY);
+interface ChatResponseBody {
+  content: string;
+}
 
-// System instruction defines the AI's personality and goals
-const systemInstruction = {
-  role: "system",
-  parts: [{ text: `
-    You are Spillmate, a friendly, empathetic, and supportive AI companion. 
-    Your goal is to be a positive friend to the user.
-    - Keep your responses concise and conversational (like a text message).
-    - Analyze the user's messages to understand their mood. If they seem sad or anxious, be extra gentle and validating. If they are happy, celebrate with them.
-    - Ask thoughtful follow-up questions to encourage them to explore their feelings.
-    - Never give medical advice. If the user mentions a crisis (e.g., self-harm), gently guide them to seek professional help immediately by providing standard crisis line numbers.
-    - Maintain a positive and encouraging tone. End on a hopeful or supportive note.
-  `}],
-};
+interface ErrorResponseBody {
+  message: string;
+}
 
-export async function getGeminiResponse(history: Message[]): Promise<string> {
-  
-  // <-- FIX 1: Pass the systemInstruction during model initialization.
-  const model = genAI.getGenerativeModel({ 
-    model: MODEL_NAME,
-    systemInstruction, // This is the correct way to set the persona
-  });
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<ChatResponseBody | ErrorResponseBody>
+) {
+  // --- This line is our critical diagnostic tool ---
+  // It checks if the server is actually seeing your API key.
+  if (!process.env.GEMINI_API_KEY) {
+      console.error("CRITICAL SERVER ERROR: The GEMINI_API_KEY environment variable is missing!");
+      // Send a specific JSON error back to the frontend.
+      return res.status(500).json({ message: "Server is missing its API Key configuration." });
+  }
 
-  // <-- FIX 2: Separate the chat history from the user's latest message.
-  const conversationHistory = history.slice(0, -1); // All messages EXCEPT the last one
-  const latestMessage = history[history.length - 1]; // The very last message
-
-  if (latestMessage.role !== 'user') {
-    throw new Error("The last message in the history must be from the user.");
+  if (req.method !== 'POST') {
+    return res.status(405).json({ message: 'Method Not Allowed. Please use POST.' });
   }
 
   try {
-    const chat = model.startChat({
-      // Initialize the chat with the conversation leading UP TO the last message
-      history: conversationHistory.map(msg => ({
-        role: msg.role === 'assistant' ? 'model' : 'user', // Gemini expects 'model' role
-        parts: [{ text: msg.content }],
-      })),
-      generationConfig: {
-        temperature: 0.9,
-        topP: 1,
-        maxOutputTokens: 2048,
-      },
-       safetySettings: [ // Safety settings remain the same
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-      ],
-    });
+    const { messages } = req.body as ChatRequestBody;
 
-    // <-- FIX 3: Send only the content of the latest message.
-    const result = await chat.sendMessage(latestMessage.content);
-    return result.response.text();
+    if (!messages || messages.length === 0) {
+      return res.status(400).json({ message: 'No messages provided.' });
+    }
+    
+    // Call your actual Gemini service function
+    const aiResponseContent = await getGeminiResponse(messages);
+
+    // Send the successful response from the AI
+    res.status(200).json({ content: aiResponseContent });
 
   } catch (error: any) {
-    // This error handling is good and will give you detailed logs.
-    console.error("Gemini API Error Details:", {
-      message: error.message,
-      stack: error.stack,
-      response: error.response?.text ? await error.response.text() : "No response body."
-    });
+    console.error('Error in /api/chat handler:', error);
     
-    throw new Error("The AI service failed to respond. Please check the server logs.");
+    // If anything goes wrong inside getGeminiResponse, send a clear JSON error.
+    res.status(500).json({ message: error.message || "An unexpected error occurred." });
   }
 }
