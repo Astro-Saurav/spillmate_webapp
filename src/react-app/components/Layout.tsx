@@ -78,7 +78,7 @@ export default function Layout({ children }: LayoutProps) {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['free_user', 'premium_user', 'admin'] },
     { name: 'Conversations', href: '/conversations', icon: MessageSquare, roles: ['free_user', 'premium_user', 'admin'] },
-    { name: 'Insights', href: '/Insights', icon: CreditCard, roles: ['free_user', 'premium_user', 'admin']},
+    { name: 'Insights', href: '/insights', icon: CreditCard, roles: ['free_user', 'premium_user', 'admin']},
     { name: 'Mood Tracker', href: '/mood-tracker', icon: Heart, roles: ['free_user', 'premium_user', 'admin'] },
     { name: 'Buy Sessions', href: '/pricing', icon: CreditCard, roles: ['free_user'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['free_user', 'premium_user', 'admin'] },
