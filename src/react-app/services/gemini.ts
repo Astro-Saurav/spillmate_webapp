@@ -1,7 +1,4 @@
-//
-// ➡️ LOCATION: /src/pages/api/chat.ts
-//    (All-in-one API Route)
-//
+
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import { Message } from 'src/shared/types.ts';  // This path must be correct
@@ -87,3 +84,4 @@ export default async function handler(
     return res.status(500).json({ message: error.message || "An unexpected error occurred on the server." });
   }
 }
+
