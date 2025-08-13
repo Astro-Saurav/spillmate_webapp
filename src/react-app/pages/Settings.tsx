@@ -1,6 +1,6 @@
 import { useState, ChangeEvent, useRef } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
-import { User, Shield, CreditCard, Bell, Upload, FileDown, Camera } from 'lucide-react';
+import { User, CreditCard, Bell, Upload, FileDown, Camera } from 'lucide-react';
 import { useAuth } from '@/react-app/hooks/useAuth';
 import { Link } from 'react-router-dom';
 
@@ -86,4 +86,5 @@ export default function Settings() {
       </div>
     </motion.div>
   );
+
 }
