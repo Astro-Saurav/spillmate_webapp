@@ -1,77 +1,61 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
-import { Message } from 'src/shared/types'; // This path to your types must be correct
+
+import type { NextApiRequest, NextApiResponse } from 'next'; // Vercel uses Next.js types for API routes
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+// The 'Message' type is needed here too. Define it right in the file for simplicity.
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // --- 1. Security & Request Validation ---
+  // --- Security: Only allow POST requests ---
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
-    return res.status(405).json({ message: `This route only accepts POST requests.` });
+    return res.status(405).json({ message: `Method ${req.method} Not Allowed` });
   }
 
-  // --- 2. AI Server-Side Configuration ---
-  const MODEL_NAME = "gemini-1.5-pro-latest";
+  // --- Configuration ---
   const API_KEY = process.env.GEMINI_API_KEY;
 
-  // This check is the most important part. It confirms your server has the key.
+  // This check confirms your API key is set on Vercel
   if (!API_KEY) {
-    console.error("SERVER CONFIGURATION ERROR: The GEMINI_API_KEY is not available on the server.");
-    return res.status(500).json({ message: "The server is missing its AI API key." });
+    console.error("SERVER ERROR: GEMINI_API_KEY is not configured.");
+    return res.status(500).json({ message: "Server is missing AI configuration." });
   }
 
   const genAI = new GoogleGenerativeAI(API_KEY);
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
 
-  const systemInstruction = {
-    parts: [{ text: `
-      You are Spillmate, a friendly, empathetic AI companion. Keep your responses concise and supportive. Never give medical advice.
-    `}],
-  };
-
-  // --- 3. Execute Chat Logic ---
+  // --- Main Logic ---
   try {
     const { messages } = req.body as { messages: Message[] };
 
     if (!messages || messages.length === 0) {
-      return res.status(400).json({ message: 'Your request did not contain any messages.' });
+      return res.status(400).json({ message: 'No messages were provided.' });
     }
-    
-    const model = genAI.getGenerativeModel({
-      model: MODEL_NAME,
-      systemInstruction,
-      safetySettings: [
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-      ]
-    });
 
-    // We get the chat history from the frontend, then send the newest message.
-    const conversationHistory = messages.slice(0, -1);
+    const history = messages.slice(0, -1).map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }],
+    }));
+
     const latestMessage = messages[messages.length - 1];
+    if (latestMessage.role !== 'user') { throw new Error("Invalid request payload."); }
 
-    if (latestMessage.role !== 'user') {
-      throw new Error("Invalid chat history: The final message must be from the user.");
-    }
-
-    const chat = model.startChat({
-      history: conversationHistory.map(msg => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }],
-      })),
-    });
-
+    const chat = model.startChat({ history });
     const result = await chat.sendMessage(latestMessage.content);
-    const aiResponseText = result.response.text();
     
-    // --- 4. Send Successful Response ---
-    return res.status(200).json({ content: aiResponseText });
+    // --- Success ---
+    return res.status(200).json({ content: result.response.text() });
 
   } catch (error: any) {
-    // --- 5. Universal Error Handler ---
-    // This makes sure you ALWAYS get a clean JSON error on the frontend.
+    // --- Failure ---
     console.error("A fatal error occurred in the chat API:", error);
-    return res.status(500).json({ message: error.message || "An unknown server error happened." });
+    return res.status(500).json({ message: error.message || "An unknown server error." });
   }
 }
