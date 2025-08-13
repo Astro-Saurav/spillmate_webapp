@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { Mic, Bot, Send, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '@/react-app/hooks/useAuth';
@@ -152,7 +152,7 @@ function Sidebar({ conversations, activeConv, setActiveConv, onNewChat, onDelete
 // --- ChatArea Component ---
 function ChatArea({ activeConv, addMessage }: { activeConv: Conversation; addMessage: (role: 'user' | 'assistant', content: string) => void; }) {
   const [botState, setBotState] = useState<BotState>('idle');
-  const [mood, setMood] = useState<MoodState>('neutral'); // This can be enhanced further
+  const [mood] = useState<MoodState>('neutral'); // This can be enhanced further
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Effect for Text-to-Speech
