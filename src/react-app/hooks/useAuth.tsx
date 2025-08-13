@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data: Profile = await response.json();
       setProfile(data);
       return data;
-    } catch (error) { // <-- THIS IS THE FIX
+    } catch (error) {
       console.error('Error fetching profile:', error);
       setProfile(null);
       return null;
@@ -114,7 +114,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshProfile, createProfile]);
 
+
   // --- Auth Methods ---
+  
+  // --- THIS IS THE CRITICAL FIX ---
+  // Use an environment variable for the redirect URL. This makes the code work
+  // reliably on both localhost and your live Vercel deployment.
   const signInWithOtp = (email: string) => {
     const redirectTo = process.env.NEXT_PUBLIC_SITE_URL
       ? `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
